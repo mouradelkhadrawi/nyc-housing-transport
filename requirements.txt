@@ -4,6 +4,3 @@ pandas>=2.0
 numpy>=1.26
 scipy>=1.11
 gunicorn>=21.2
-# only needed to re-run the notebook / pipeline locally
-matplotlib>=3.8
-jupyter>=1.0
