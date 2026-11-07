@@ -49,7 +49,7 @@ Both datasets are aggregated to ZIP x month (no row-level join). ZIP universe = 
 | Member | ID | Contributions |
 |---|---|---|
 | mourad gehad  | 16002563| _e.g. housing cleaning, Q1 (scatter), Q2 (borough ratio bars), dropdown filters, Generate Report callback_ |
-| kareem mahmoud | _ID_ | _e.g. crash cleaning, integration + post-integration cleaning, Q3 (seasonality), Q4 (map), Q5 (lead/lag), search mode, deployment_ |
+| kareem mahmoud | 16009517 | _e.g. crash cleaning, integration + post-integration cleaning, Q3 (seasonality), Q4 (map), Q5 (lead/lag), search mode, deployment_ |
 
 ## Limitations
 Filings are paperwork events, not finished construction; DOB NOW omits some job types; no population or traffic-volume normalisation; COVID-19 distorts 2020; ZIP-level aggregation hides street-level effects; association is not causation.
