@@ -13,7 +13,7 @@ An interactive Dash website and a Jupyter notebook that integrate **DOB NOW: Bui
 |---|---|
 | `nyc_housing_transport.ipynb` | Full workflow: overview, EDA, pre-integration cleaning, integration, post-integration cleaning, story |
 | `pipeline.py` | Same cleaning/integration code as the notebook (the notebook is generated from it); `python pipeline.py` rebuilds the data |
-| `app.py` | Dash website (dropdown filters, search mode, Generate Report, 6 main-question charts plus 1 bonus chart, story section) |
+| `app.py` | Dash website (dropdown filters, search mode, Generate Report, 8 research-question charts, story section) |
 | `data/integrated_zip_month.csv` | Integrated dataset read by the website (created by the notebook/pipeline; **commit it**) |
 | `assets/style.css` | Website styling |
 | `requirements.txt`, `Procfile`, `render.yaml` | Deployment |
@@ -22,8 +22,6 @@ An interactive Dash website and a Jupyter notebook that integrate **DOB NOW: Bui
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-
-# In VS Code, open the notebook and select .venv\Scripts\python.exe as its kernel.
 
 # 1. Build the integrated dataset (downloads from NYC Open Data, cached in data/raw/; a few minutes)
 python pipeline.py          # or run every cell of nyc_housing_transport.ipynb
@@ -36,7 +34,7 @@ The website needs `data/integrated_zip_month.csv`. Without it the page shows a "
 ## Using the website
 1. Pick filters: **Borough**, **Year**, **Housing metric**, **Crash metric** (leave borough/year empty for all).
 2. Or type into **search mode**, e.g. `Brooklyn 2022 new buildings pedestrians`, `Queens 2021-2023 demolitions fatal`. Recognised: boroughs, years/ranges, construction types, crash types. Search sets the dropdowns and refreshes the report.
-3. Press **Generate Report**. All KPI cards, the five charts and the auto-written findings update from the current filters.
+3. Press **Generate Report**. All KPI cards, the eight charts and the auto-written findings update from the current filters.
 
 ## Deployment on Render (free)
 1. Push this folder to a GitHub repository, **including** `data/integrated_zip_month.csv`.
@@ -50,9 +48,9 @@ Both datasets are aggregated to ZIP x month (no row-level join). ZIP universe = 
 ## Team contributions
 | Member | ID | Contributions |
 |---|---|---|
-| Mourad Gehad | 16002563 | Housing cleaning, Q1 (ZIP scatter), Q2 (borough ratio bars), dropdown filters and Generate Report callback |
-| Kareem Mahmoud | 16009517 | Crash cleaning, integration and post-integration cleaning, Q3 (seasonality), Q4 (map), Q7 bonus (lead/lag), search mode and deployment |
-| Third member (replace with name) | Add ID | Q5 (filing-type heatmap), Q6 (pedestrian/cyclist injury-share chart), and interpretation of these findings |
+| Mourad Gehad | 16002563 | Q1 (ZIP-level scatter), Q2 (borough ratio bars) and Q8 (construction-growth box plot); ran the notebook on NYC Open Data; set up the GitHub repository; deployed and tested the website on Render; wrote the README and notebook documentation |
+| Kareem Mahmoud | 16009517 | Q3 (seasonality line chart), Q4 (hot-spot map) and Q7 (lead/lag correlation); interpreted findings; tested website filters, search mode and Generate Report |
+| Mohamed Khalil | MOHAMED_ID | Q5 (filing-type heatmap) and Q6 (pedestrian/cyclist injury-share chart), added to both the notebook and the website; interpretation of these findings |
 
 ## Limitations
 Filings are paperwork events, not finished construction; DOB NOW omits some job types; no population or traffic-volume normalisation; COVID-19 distorts 2020; ZIP-level aggregation hides street-level effects; association is not causation.

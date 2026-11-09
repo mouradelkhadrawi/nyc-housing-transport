@@ -347,7 +347,7 @@ def lead_lag_correlations(data, h_col, c_col, max_lag=6):
 
 
 def fig_q7_lead_lag(data, h_col, c_col):
-    """Q7 (bonus) - Does a construction spike come before or after a crash spike?"""
+    """Q7 - Does a construction spike come before or after a crash spike?"""
     if data["zip"].nunique() < 2 or data["month"].nunique() < 12:
         return empty_figure("Need at least 2 ZIPs and 12 months for a lead/lag analysis")
     lag_df = lead_lag_correlations(data, h_col, c_col)
@@ -357,6 +357,59 @@ def fig_q7_lead_lag(data, h_col, c_col):
                  color="corr", color_continuous_scale="RdBu_r", range_color=[-0.5, 0.5])
     fig.update_layout(title="Within-ZIP lead/lag correlation (association only, not cause)",
                       template="plotly_white", height=420, coloraxis_showscale=False)
+    return fig
+
+
+def construction_vs_harm_change(data, h_col, c_col):
+    """Per-ZIP change between the first and last full calendar year in the selection.
+
+    A full year has all 12 months. 2020 is skipped when later full years exist, because
+    DOB NOW: Build was still ramping up (almost no new-building filings) and COVID-19 cut
+    traffic, which would make every ZIP look like it 'grew'.
+    Returns (per_zip_df, first_year, last_year); per_zip_df is empty if fewer than 2 full years.
+    """
+    months_per_year = data.groupby("year")["month"].nunique()
+    full_years = sorted(int(y) for y in months_per_year[months_per_year == 12].index)
+    if len(full_years) > 2 and full_years[0] == 2020:
+        full_years = full_years[1:]
+    if len(full_years) < 2:
+        return pd.DataFrame(), None, None
+    first, last = full_years[0], full_years[-1]
+    yearly = data[data["year"].isin([first, last])].pivot_table(
+        index="zip", columns="year", values=[h_col, c_col], aggfunc="sum")
+    per_zip = pd.DataFrame({
+        "construction_change": yearly[(h_col, last)] - yearly[(h_col, first)],
+        "harm_first": yearly[(c_col, first)], "harm_last": yearly[(c_col, last)],
+    })
+    per_zip = per_zip[per_zip["harm_first"] > 0]
+    per_zip["harm_change_pct"] = (per_zip["harm_last"] / per_zip["harm_first"] - 1) * 100
+    if len(per_zip) < 8:
+        return pd.DataFrame(), first, last
+    # Quartiles of construction change; rank() breaks ties so qcut always gets 4 groups
+    labels = ["Lowest growth", "Low-mid", "Mid-high", "Highest growth"]
+    per_zip["growth_group"] = pd.qcut(per_zip["construction_change"].rank(method="first"), 4, labels=labels)
+    return per_zip.reset_index(), first, last
+
+
+def fig_q8_change_box(data, h_col, c_col):
+    """Q8 - Did ZIPs whose construction grew the most also see crash harm grow?"""
+    per_zip, first, last = construction_vs_harm_change(data, h_col, c_col)
+    if per_zip.empty:
+        return empty_figure("Need at least 2 full years and 8 ZIPs - select more years or boroughs")
+    rho = spearman(per_zip["construction_change"], per_zip["harm_change_pct"])
+    fig = px.box(per_zip, x="growth_group", y="harm_change_pct", points="all", hover_name="zip",
+                 category_orders={"growth_group": ["Lowest growth", "Low-mid", "Mid-high", "Highest growth"]},
+                 color_discrete_sequence=[PRIMARY],
+                 labels={"growth_group": f"Change in {HOUSING_OPTIONS[h_col].lower()}, {first} to {last} "
+                                         "(ZIP quartiles)",
+                         "harm_change_pct": f"% change in {CRASH_OPTIONS[c_col].lower()}, {first} to {last}"})
+    fig.add_hline(y=0, line_dash="dash", line_color="#888")
+    # A few small ZIPs have extreme % changes (e.g. +600%); zoom to the bulk so the boxes are readable.
+    low, high = per_zip["harm_change_pct"].quantile([0.01, 0.97])
+    fig.update_yaxes(range=[min(low, 0) - 10, max(high, 0) + 15])
+    fig.update_layout(title=f"Each dot is a ZIP; {first} vs {last} (Spearman rho = {fmt_rho(rho)}; "
+                            "a few extreme ZIPs off-scale)",
+                      template="plotly_white", height=440)
     return fig
 
 
@@ -374,7 +427,7 @@ def build_report(boroughs, years, h_col, c_col):
     data = filter_data(DF, boroughs, years)
     if data.empty:
         msg = html.Div("No rows match these filters.", className="finding")
-        return [msg] + [empty_figure()] * 7 + [msg]
+        return [msg] + [empty_figure()] * 8 + [msg]
 
     totals = zip_totals(data, h_col, c_col)
     rho = spearman(totals["housing"], totals["crash"])
@@ -408,7 +461,7 @@ def build_report(boroughs, years, h_col, c_col):
             fig_q1_scatter(data, h_col, c_col), fig_q2_ratio_bars(data, h_col, c_col),
             fig_q3_seasonality(data, h_col, c_col), fig_q4_map(data, h_col, c_col),
             fig_q5_construction_types(data, c_col), fig_q6_vulnerable_road_users(data, h_col),
-            fig_q7_lead_lag(data, h_col, c_col), findings]
+            fig_q7_lead_lag(data, h_col, c_col), fig_q8_change_box(data, h_col, c_col), findings]
 
 
 # ----------------------------------------------------------------------------------------
@@ -432,8 +485,8 @@ STORY = html.Div([
         html.Div([html.H4("What to look for"),
                   html.P("Choose a housing and a crash metric, then press Generate Report. The scatter and "
                          "map show where the two domains overlap, the bars compare boroughs and injury "
-                         "mix, the heatmap compares construction types, and the seasonality and lead/lag "
-                         "charts show timing. "
+                         "mix, the heatmap compares construction types, the seasonality and lead/lag "
+                         "charts show timing, and the box plot compares change over time. "
                          "The findings box under the charts is computed from whatever you selected.")]),
         html.Div([html.H4("Limits"),
                   html.P("Filings are paperwork events, not completed construction, and DOB NOW does not "
@@ -504,8 +557,12 @@ def build_layout():
             html.Div([html.H4("Q6. Do pedestrian and cyclist injuries make up a larger share in higher-activity ZIP-months?"),
                       dcc.Graph(id="fig-q6")], className="card half"),
         ], className="row"),
-        html.Div([html.H4("Q7 (bonus). Does construction come before or after crash spikes within a ZIP?"),
-                  dcc.Graph(id="fig-q7")], className="card"),
+        html.Div([
+            html.Div([html.H4("Q7. Does construction come before or after crash spikes within a ZIP?"),
+                      dcc.Graph(id="fig-q7")], className="card half"),
+            html.Div([html.H4("Q8. Did ZIPs where construction grew the most also see crash harm grow?"),
+                      dcc.Graph(id="fig-q8")], className="card half"),
+        ], className="row"),
         html.Div(id="findings", className="card"),
         html.Div("Sources: NYC Open Data - DOB NOW: Build Job Application Filings (w9ak-ipjd); "
                  "Motor Vehicle Collisions - Crashes (h9gi-nx95).", className="footer"),
@@ -557,7 +614,8 @@ def on_search(_clicks, _submits, text, current_boroughs, current_years):
 @app.callback(
     Output("kpis", "children"), Output("fig-q1", "figure"), Output("fig-q2", "figure"),
     Output("fig-q3", "figure"), Output("fig-q4", "figure"), Output("fig-q5", "figure"),
-    Output("fig-q6", "figure"), Output("fig-q7", "figure"), Output("findings", "children"),
+    Output("fig-q6", "figure"), Output("fig-q7", "figure"), Output("fig-q8", "figure"),
+    Output("findings", "children"),
     Input("generate-btn", "n_clicks"), Input("search-applied", "data"),  # only these two trigger a refresh
     State("borough", "value"), State("year", "value"), State("housing", "value"), State("crash", "value"))
 def on_generate(_clicks, _search_token, boroughs, years, housing, crash):
