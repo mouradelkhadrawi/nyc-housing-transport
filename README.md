@@ -50,7 +50,7 @@ Both datasets are aggregated to ZIP x month (no row-level join). ZIP universe = 
 |---|---|---|
 | Mourad Gehad | 16002563 | Q1 (ZIP-level scatter), Q2 (borough ratio bars) and Q8 (construction-growth box plot); ran the notebook on NYC Open Data; set up the GitHub repository; deployed and tested the website on Render; wrote the README and notebook documentation |
 | Kareem Mahmoud | 16009517 | Q3 (seasonality line chart), Q4 (hot-spot map) and Q7 (lead/lag correlation); interpreted findings; tested website filters, search mode and Generate Report |
-| Mohamed Khalil | MOHAMED_ID | Q5 (filing-type heatmap) and Q6 (pedestrian/cyclist injury-share chart), added to both the notebook and the website; interpretation of these findings |
+| Mohamed Khalil | 13001416 | Q5 (filing-type heatmap) and Q6 (pedestrian/cyclist injury-share chart), added to both the notebook and the website; interpretation of these findings |
 
 ## Limitations
 Filings are paperwork events, not finished construction; DOB NOW omits some job types; no population or traffic-volume normalisation; COVID-19 distorts 2020; ZIP-level aggregation hides street-level effects; association is not causation.
