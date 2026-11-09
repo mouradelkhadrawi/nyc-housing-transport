@@ -241,6 +241,93 @@ def fig_q4_map(data, h_col, c_col):
     return fig
 
 
+def fig_q5_construction_types(data, c_col):
+    """Q5 - Which filing type has the strongest ZIP-month association with crash harm?"""
+    filing_types = [
+        ("filings_nb", "New buildings"),
+        ("filings_alt", "Alterations"),
+        ("filings_dm", "Demolitions"),
+    ]
+    rows = []
+    for borough in BOROUGHS:
+        borough_data = data[data["borough"] == borough]
+        if borough_data.empty:
+            continue
+        for col, label in filing_types:
+            rows.append({
+                "borough": borough,
+                "type": label,
+                "rho": spearman(borough_data[col], borough_data[c_col]),
+            })
+    corr = pd.DataFrame(rows)
+    if corr.empty or corr["rho"].notna().sum() == 0:
+        return empty_figure("Not enough variation in these ZIP-months to compare filing types")
+
+    matrix = corr.pivot(index="borough", columns="type", values="rho")
+    matrix = matrix.reindex(index=[b for b in BOROUGHS if b in matrix.index],
+                            columns=[label for _, label in filing_types])
+    fig = go.Figure(go.Heatmap(
+        z=matrix.to_numpy(), x=matrix.columns.tolist(), y=matrix.index.tolist(),
+        colorscale="RdBu_r", zmin=-1, zmax=1, zmid=0,
+        colorbar={"title": "Spearman rho"},
+        hovertemplate="%{y}<br>%{x}<br>rho=%{z:.2f}<extra></extra>"))
+    for borough in matrix.index:
+        for filing_type in matrix.columns:
+            value = matrix.loc[borough, filing_type]
+            if pd.notna(value):
+                fig.add_annotation(x=filing_type, y=borough, text=f"{value:+.2f}",
+                                   showarrow=False, font={"color": "#222", "size": 12})
+    fig.update_layout(
+        title=f"ZIP-month association with {CRASH_OPTIONS[c_col].lower()} by borough",
+        xaxis_title="Construction filing type", yaxis_title="",
+        template="plotly_white", height=420)
+    return fig
+
+
+def vru_injury_shares(data, h_col):
+    """Weighted pedestrian/cyclist injury shares across construction activity groups."""
+    positive = data.loc[data[h_col] > 0, h_col]
+    if positive.empty:
+        return pd.DataFrame()
+
+    median_positive = positive.median()
+    grouped = data.copy()
+    grouped["activity_group"] = np.select(
+        [grouped[h_col] == 0, grouped[h_col] <= median_positive],
+        ["No construction", "Lower activity"], default="Higher activity")
+    order = ["No construction", "Lower activity", "Higher activity"]
+    summary = grouped.groupby("activity_group", observed=False)[
+        ["injured", "ped_injured", "cyc_injured"]
+    ].sum().reindex(order).dropna(how="all")
+    summary = summary[summary["injured"] > 0]
+    if summary.empty:
+        return pd.DataFrame()
+    summary["ped_share"] = summary["ped_injured"] / summary["injured"] * 100
+    summary["cyc_share"] = summary["cyc_injured"] / summary["injured"] * 100
+    return summary
+
+
+def fig_q6_vulnerable_road_users(data, h_col):
+    """Q6 - Does the pedestrian/cyclist share of injuries rise with construction activity?"""
+    shares = vru_injury_shares(data, h_col)
+    if shares.empty:
+        return empty_figure("No injury or construction activity data for this selection")
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=shares.index, y=shares["ped_share"], name="Pedestrian injuries",
+        marker_color="#d1495b", hovertemplate="%{x}<br>Pedestrians: %{y:.1f}%<extra></extra>"))
+    fig.add_trace(go.Bar(
+        x=shares.index, y=shares["cyc_share"], name="Cyclist injuries",
+        marker_color="#2e86ab", hovertemplate="%{x}<br>Cyclists: %{y:.1f}%<extra></extra>"))
+    fig.update_layout(
+        title=f"Pedestrian and cyclist shares of all injuries by {HOUSING_OPTIONS[h_col].lower()}",
+        xaxis_title="Construction activity group (threshold recalculated for current filters)",
+        yaxis_title="Share of all injured people (%)", barmode="stack",
+        template="plotly_white", height=420,
+        legend={"orientation": "h", "y": 1.12})
+    return fig
+
+
 def lead_lag_correlations(data, h_col, c_col, max_lag=6):
     """Pooled within-ZIP correlation between construction in month t and crash harm in month t+k.
 
@@ -259,8 +346,8 @@ def lead_lag_correlations(data, h_col, c_col, max_lag=6):
     return pd.DataFrame(rows)
 
 
-def fig_q5_lead_lag(data, h_col, c_col):
-    """Q5 (bonus) - Does a construction spike come before or after a crash spike?"""
+def fig_q7_lead_lag(data, h_col, c_col):
+    """Q7 (bonus) - Does a construction spike come before or after a crash spike?"""
     if data["zip"].nunique() < 2 or data["month"].nunique() < 12:
         return empty_figure("Need at least 2 ZIPs and 12 months for a lead/lag analysis")
     lag_df = lead_lag_correlations(data, h_col, c_col)
@@ -287,7 +374,7 @@ def build_report(boroughs, years, h_col, c_col):
     data = filter_data(DF, boroughs, years)
     if data.empty:
         msg = html.Div("No rows match these filters.", className="finding")
-        return [msg] + [empty_figure()] * 5 + [msg]
+        return [msg] + [empty_figure()] * 7 + [msg]
 
     totals = zip_totals(data, h_col, c_col)
     rho = spearman(totals["housing"], totals["crash"])
@@ -320,7 +407,8 @@ def build_report(boroughs, years, h_col, c_col):
     return [html.Div(kpis, className="kpi-row"),
             fig_q1_scatter(data, h_col, c_col), fig_q2_ratio_bars(data, h_col, c_col),
             fig_q3_seasonality(data, h_col, c_col), fig_q4_map(data, h_col, c_col),
-            fig_q5_lead_lag(data, h_col, c_col), findings]
+            fig_q5_construction_types(data, c_col), fig_q6_vulnerable_road_users(data, h_col),
+            fig_q7_lead_lag(data, h_col, c_col), findings]
 
 
 # ----------------------------------------------------------------------------------------
@@ -343,9 +431,10 @@ STORY = html.Div([
                          "became true zeros.")]),
         html.Div([html.H4("What to look for"),
                   html.P("Choose a housing and a crash metric, then press Generate Report. The scatter and "
-                         "map show where the two domains overlap, the bars compare boroughs, and the "
-                         "line and lead/lag charts show timing. The findings box under the charts is "
-                         "computed from whatever you selected.")]),
+                         "map show where the two domains overlap, the bars compare boroughs and injury "
+                         "mix, the heatmap compares construction types, and the seasonality and lead/lag "
+                         "charts show timing. "
+                         "The findings box under the charts is computed from whatever you selected.")]),
         html.Div([html.H4("Limits"),
                   html.P("Filings are paperwork events, not completed construction, and DOB NOW does not "
                          "cover every job type. We have no population, traffic-volume or street-length "
@@ -409,8 +498,14 @@ def build_layout():
             html.Div([html.H4("Q4. Where do construction and crash hot spots overlap?"),
                       dcc.Graph(id="fig-q4")], className="card half"),
         ], className="row"),
-        html.Div([html.H4("Q5 (bonus). Does construction come before or after crash spikes within a ZIP?"),
-                  dcc.Graph(id="fig-q5")], className="card"),
+        html.Div([
+            html.Div([html.H4("Q5. Which construction filing type is most associated with crash harm?"),
+                      dcc.Graph(id="fig-q5")], className="card half"),
+            html.Div([html.H4("Q6. Do pedestrian and cyclist injuries make up a larger share in higher-activity ZIP-months?"),
+                      dcc.Graph(id="fig-q6")], className="card half"),
+        ], className="row"),
+        html.Div([html.H4("Q7 (bonus). Does construction come before or after crash spikes within a ZIP?"),
+                  dcc.Graph(id="fig-q7")], className="card"),
         html.Div(id="findings", className="card"),
         html.Div("Sources: NYC Open Data - DOB NOW: Build Job Application Filings (w9ak-ipjd); "
                  "Motor Vehicle Collisions - Crashes (h9gi-nx95).", className="footer"),
@@ -462,7 +557,7 @@ def on_search(_clicks, _submits, text, current_boroughs, current_years):
 @app.callback(
     Output("kpis", "children"), Output("fig-q1", "figure"), Output("fig-q2", "figure"),
     Output("fig-q3", "figure"), Output("fig-q4", "figure"), Output("fig-q5", "figure"),
-    Output("findings", "children"),
+    Output("fig-q6", "figure"), Output("fig-q7", "figure"), Output("findings", "children"),
     Input("generate-btn", "n_clicks"), Input("search-applied", "data"),  # only these two trigger a refresh
     State("borough", "value"), State("year", "value"), State("housing", "value"), State("crash", "value"))
 def on_generate(_clicks, _search_token, boroughs, years, housing, crash):

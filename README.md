@@ -1,6 +1,6 @@
 # NYC: Does Construction Activity Travel with Street Danger?
 
-Data Engineering and Visualization, Milestone 1 (GIU, Winter 2026). Team of two.
+Data Engineering and Visualization, Milestone 1 (GIU, Winter 2026). Team of three.
 
 An interactive Dash website and a Jupyter notebook that integrate **DOB NOW: Build job filings** (housing & development) with **NYPD Motor Vehicle Collisions** (transportation) at **ZIP code x month** level, to ask whether the geography and timing of construction overlap with crash harm.
 
@@ -13,7 +13,7 @@ An interactive Dash website and a Jupyter notebook that integrate **DOB NOW: Bui
 |---|---|
 | `nyc_housing_transport.ipynb` | Full workflow: overview, EDA, pre-integration cleaning, integration, post-integration cleaning, story |
 | `pipeline.py` | Same cleaning/integration code as the notebook (the notebook is generated from it); `python pipeline.py` rebuilds the data |
-| `app.py` | Dash website (dropdown filters, search mode, Generate Report, 5 charts, story section) |
+| `app.py` | Dash website (dropdown filters, search mode, Generate Report, 6 main-question charts plus 1 bonus chart, story section) |
 | `data/integrated_zip_month.csv` | Integrated dataset read by the website (created by the notebook/pipeline; **commit it**) |
 | `assets/style.css` | Website styling |
 | `requirements.txt`, `Procfile`, `render.yaml` | Deployment |
@@ -22,6 +22,8 @@ An interactive Dash website and a Jupyter notebook that integrate **DOB NOW: Bui
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+
+# In VS Code, open the notebook and select .venv\Scripts\python.exe as its kernel.
 
 # 1. Build the integrated dataset (downloads from NYC Open Data, cached in data/raw/; a few minutes)
 python pipeline.py          # or run every cell of nyc_housing_transport.ipynb
@@ -48,8 +50,9 @@ Both datasets are aggregated to ZIP x month (no row-level join). ZIP universe = 
 ## Team contributions
 | Member | ID | Contributions |
 |---|---|---|
-| mourad gehad  | 16002563| _e.g. housing cleaning, Q1 (scatter), Q2 (borough ratio bars), dropdown filters, Generate Report callback_ |
-| kareem mahmoud | 16009517 | _e.g. crash cleaning, integration + post-integration cleaning, Q3 (seasonality), Q4 (map), Q5 (lead/lag), search mode, deployment_ |
+| Mourad Gehad | 16002563 | Housing cleaning, Q1 (ZIP scatter), Q2 (borough ratio bars), dropdown filters and Generate Report callback |
+| Kareem Mahmoud | 16009517 | Crash cleaning, integration and post-integration cleaning, Q3 (seasonality), Q4 (map), Q7 bonus (lead/lag), search mode and deployment |
+| Third member (replace with name) | Add ID | Q5 (filing-type heatmap), Q6 (pedestrian/cyclist injury-share chart), and interpretation of these findings |
 
 ## Limitations
 Filings are paperwork events, not finished construction; DOB NOW omits some job types; no population or traffic-volume normalisation; COVID-19 distorts 2020; ZIP-level aggregation hides street-level effects; association is not causation.
